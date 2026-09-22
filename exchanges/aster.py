@@ -385,24 +385,28 @@ class AsterClient(BaseExchangeClient):
 
         url = f"{self.base_url}{endpoint}"
         headers = {'Content-Type': 'application/x-www-form-urlencoded'}
-        signed = self._signed_params({**params, **data})
+        # V3 market-data endpoints are public and must not receive API-wallet
+        # authentication fields; account/trade endpoints remain signed.
+        public_endpoint = endpoint in {'/fapi/v3/exchangeInfo', '/fapi/v3/ticker/bookTicker'}
+        request_params = {**params, **data}
+        signed = request_params if public_endpoint else self._signed_params(request_params)
 
         async with aiohttp.ClientSession() as session:
             if method.upper() == 'GET':
                 async with session.get(url, params=signed, headers=headers) as response:
-                    result = await response.json()
+                    result = await response.json(content_type=None)
                     if response.status != 200:
                         raise Exception(f"API request failed: {result}")
                     return result
             elif method.upper() == 'POST':
                 async with session.post(url, data=signed, headers=headers) as response:
-                    result = await response.json()
+                    result = await response.json(content_type=None)
                     if response.status != 200:
                         raise Exception(f"API request failed: {result}")
                     return result
             elif method.upper() == 'DELETE':
                 async with session.delete(url, params=signed, headers=headers) as response:
-                    result = await response.json()
+                    result = await response.json(content_type=None)
                     if response.status != 200:
                         raise Exception(f"API request failed: {result}")
                     return result
