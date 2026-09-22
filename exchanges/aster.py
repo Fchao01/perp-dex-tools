@@ -339,6 +339,7 @@ class AsterClient(BaseExchangeClient):
         # Initialize logger early
         self.logger = TradingLogger(exchange="aster", ticker=self.config.ticker, log_to_console=False)
         self._order_update_handler = None
+        self._dual_side_position = None
 
     def _validate_config(self) -> None:
         """Validate Aster configuration."""
@@ -483,6 +484,19 @@ class AsterClient(BaseExchangeClient):
             order_price = best_bid + self.config.tick_size
         return order_price
 
+    async def _position_side(self, side: str, opening: bool) -> str:
+        """Return the positionSide required by the account's mode."""
+        if self._dual_side_position is None:
+            result = await self._make_request('GET', '/fapi/v3/positionSide/dual')
+            self._dual_side_position = bool(result.get('dualSidePosition', False))
+        if not self._dual_side_position:
+            return 'BOTH'
+        # Opening BUY creates LONG and opening SELL creates SHORT. Closing
+        # uses the opposite order side but retains the position side.
+        if opening:
+            return 'LONG' if side.lower() == 'buy' else 'SHORT'
+        return 'LONG' if side.lower() == 'sell' else 'SHORT'
+
     async def place_open_order(self, contract_id: str, quantity: Decimal, direction: str) -> OrderResult:
         """Place an open order with Aster."""
         attempt = 0
@@ -523,6 +537,7 @@ class AsterClient(BaseExchangeClient):
                 'price': str(price),
                 'timeInForce': 'GTX'  # GTX is Good Till Crossing (Post Only)
             }
+            order_data['positionSide'] = await self._position_side(direction, opening=True)
 
             result = await self._make_request('POST', '/fapi/v3/order', data=order_data)
             order_status = result.get('status', '')
@@ -600,6 +615,7 @@ class AsterClient(BaseExchangeClient):
                 'price': str(adjusted_price),
                 'timeInForce': 'GTX'  # GTX is Good Till Crossing (Post Only)
             }
+            order_data['positionSide'] = await self._position_side(side, opening=False)
 
             result = await self._make_request('POST', '/fapi/v3/order', data=order_data)
             order_status = result.get('status', '')
@@ -636,6 +652,7 @@ class AsterClient(BaseExchangeClient):
             'type': 'MARKET',
             'quantity': str(quantity)
         }
+        order_data['positionSide'] = await self._position_side(direction, opening=False)
 
         result = await self._make_request('POST', '/fapi/v3/order', data=order_data)
         order_status = result.get('status', '')
