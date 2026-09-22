@@ -31,7 +31,7 @@ class AsterWebSocketManager:
         self.order_update_callback = order_update_callback
         self.websocket = None
         self.running = False
-        self.base_url = "https://fapi3.asterdex.com"
+        self.base_url = "https://fapi.asterdex.com"
         self.ws_url = "wss://fstream.asterdex.com"
         self.listen_key = None
         self.logger = None
@@ -72,7 +72,7 @@ class AsterWebSocketManager:
 
         async with aiohttp.ClientSession() as session:
             async with session.post(
-                'https://fapi3.asterdex.com/fapi/v3/listenKey',
+                'https://fapi.asterdex.com/fapi/v3/listenKey',
                 headers=headers,
                 data=self._signed_params({'user': self.user}),
             ) as response:
@@ -329,7 +329,7 @@ class AsterClient(BaseExchangeClient):
         self.user = os.getenv('ASTER_PRO_USER')
         self.signer = os.getenv('ASTER_PRO_SIGNER')
         self.private_key = os.getenv('ASTER_PRO_PRIVATE_KEY')
-        self.base_url = 'https://fapi3.asterdex.com'
+        self.base_url = 'https://fapi.asterdex.com'
 
         if not self.user or not self.signer or not self.private_key:
             raise ValueError(
