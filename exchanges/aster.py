@@ -414,6 +414,17 @@ class AsterClient(BaseExchangeClient):
 
     async def connect(self) -> None:
         """Connect to Aster WebSocket."""
+        # Ensure the account uses one-way mode before any order can be sent.
+        # Aster applies this setting account-wide; it may reject the change
+        # while positions or open orders exist.
+        mode = await self._make_request('GET', '/fapi/v3/positionSide/dual')
+        if bool(mode.get('dualSidePosition', False)):
+            await self._make_request(
+                'POST', '/fapi/v3/positionSide/dual',
+                data={'dualSidePosition': 'false'}
+            )
+        self._dual_side_position = False
+
         # Initialize WebSocket manager
         self.ws_manager = AsterWebSocketManager(
             config=self.config,
