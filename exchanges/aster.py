@@ -749,10 +749,24 @@ class AsterClient(BaseExchangeClient):
         try:
             result = await self._make_request('GET', '/fapi/v1/exchangeInfo')
 
+            # Accept either a base asset (e.g. SNDK, retaining the USDT
+            # default for backwards compatibility) or an exact market symbol
+            # (e.g. SNDKUSD1) when a non-USDT margin asset is required.
+            requested_symbol = ticker.upper()
+            exact_symbol = requested_symbol if any(
+                s.get('symbol') == requested_symbol for s in result['symbols']
+            ) else None
+
             for symbol_info in result['symbols']:
-                if (symbol_info.get('status') == 'TRADING' and
-                        symbol_info.get('baseAsset') == ticker and
-                        symbol_info.get('quoteAsset') == 'USDT'):
+                matches_market = (
+                    symbol_info.get('symbol') == exact_symbol
+                    if exact_symbol
+                    else (
+                        symbol_info.get('baseAsset') == requested_symbol and
+                        symbol_info.get('quoteAsset') == 'USDT'
+                    )
+                )
+                if symbol_info.get('status') == 'TRADING' and matches_market:
 
                     self.config.contract_id = symbol_info.get('symbol', '')
 
@@ -762,7 +776,7 @@ class AsterClient(BaseExchangeClient):
                             self.config.tick_size = Decimal(filter_info['tickSize'].strip('0'))
                             break
 
-                    # Get minimum quantity
+                    # Get minimum quantity (existing behavior).
                     min_quantity = Decimal(0)
                     for filter_info in symbol_info.get('filters', []):
                         if filter_info.get('filterType') == 'LOT_SIZE':
