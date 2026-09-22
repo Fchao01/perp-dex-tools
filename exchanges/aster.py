@@ -52,12 +52,6 @@ class AsterWebSocketManager:
 
     async def _get_listen_key(self) -> str:
         """Get listen key for user data stream."""
-        params = {
-            'timestamp': int(time.time() * 1000)
-        }
-        signature = self._generate_signature(params)
-        params['signature'] = signature
-
         headers = {
             'X-MBX-APIKEY': self.api_key,
             'Content-Type': 'application/x-www-form-urlencoded'
@@ -67,7 +61,6 @@ class AsterWebSocketManager:
             async with session.post(
                 'https://fapi.asterdex.com/fapi/v1/listenKey',
                 headers=headers,
-                data=params
             ) as response:
                 if response.status == 200:
                     result = await response.json()
@@ -81,12 +74,6 @@ class AsterWebSocketManager:
             if not self.listen_key:
                 return False
 
-            params = {
-                'timestamp': int(time.time() * 1000)
-            }
-            signature = self._generate_signature(params)
-            params['signature'] = signature
-
             headers = {
                 'X-MBX-APIKEY': self.api_key,
                 'Content-Type': 'application/x-www-form-urlencoded'
@@ -96,7 +83,6 @@ class AsterWebSocketManager:
                 async with session.put(
                     f"{self.base_url}/fapi/v1/listenKey",
                     headers=headers,
-                    data=params
                 ) as response:
                     if response.status == 200:
                         if self.logger:
