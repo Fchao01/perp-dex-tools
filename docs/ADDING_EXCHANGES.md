@@ -4,7 +4,9 @@ This document explains how to add support for new exchanges to the modular tradi
 
 ## Overview
 
-The trading bot has been modularized to support multiple exchanges through a plugin-like architecture. Each exchange is implemented as a separate client that inherits from `BaseExchangeClient`. The bot currently supports EdgeX, Backpack, Paradex, and GRVT exchanges.
+The trading bot has been modularized to support multiple exchanges through a plugin-like architecture. Each exchange is implemented as a separate client that inherits from `BaseExchangeClient`. The main bot currently selects among the clients registered in `exchanges/factory.py`, including Arcus.
+
+Arcus is a protocol-specific integration: its API uses Ed25519 request signatures, nanosecond replay timestamps, integer tick/quantum values in the signed payload, decimal strings in the HTTP body, and a multiplexed WebSocket for order lifecycle events. See the [official Arcus authentication](https://docs.arcus.xyz/api-reference/authentication), [order](https://docs.arcus.xyz/api-reference/exchange/place-order), and [WebSocket](https://docs.arcus.xyz/api-reference/websocket) documentation when changing `exchanges/arcus.py`.
 
 ## Architecture
 

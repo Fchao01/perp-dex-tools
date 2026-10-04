@@ -8,7 +8,7 @@
 
 ## Multi-Exchange Trading Bot
 
-A modular trading bot that supports multiple exchanges including EdgeX, Backpack, Paradex, Aster, Lighter, GRVT, and Extended. The bot implements an automated strategy that places orders and automatically closes them at a profit.
+A modular trading bot that supports EdgeX, Backpack, Paradex, Aster, Lighter, GRVT, Extended, ApeX, Nado, Ethereal, StandX, and Arcus. The bot implements an automated strategy that places orders and automatically closes them at a profit.
 
 ## Referral Links (Enjoy fee rebates and benefits)
 
@@ -267,6 +267,16 @@ ETH:
 python runbot.py --exchange extended --ticker ETH --quantity 0.1 --take-profit 0 --max-orders 40 --wait-time 450 --grid-step 0.01
 ```
 
+### Arcus:
+
+Arcus resolves a base ticker such as `BTC` to its documented market name
+(`BTC-USD`). Configure an Ed25519 API key, its signing seed, the owning wallet
+address, and the authorized subaccount before starting the bot.
+
+```bash
+python runbot.py --exchange arcus --ticker BTC --quantity 0.001 --take-profit 0.02 --max-orders 40 --wait-time 450
+```
+
 ## 🆕 Hedge Mode
 
 The new Hedge Mode (`hedge_mode.py`) is an trading strategy that reduces risk by simultaneously hedging trades across two exchanges:
@@ -368,6 +378,14 @@ python hedge_mode.py --exchange edgex --ticker BTC --size 0.001 --iter 20
 - `APEX_API_KEY_SECRET`: Your Apex API key secret
 - `APEX_OMNI_KEY_SEED`: Your Apex Omni key seed
 
+#### Arcus Configuration
+
+- `ARCUS_API_KEY`: Arcus Ed25519 public key (64 hex characters)
+- `ARCUS_API_SIGNING_KEY`: 32-byte Arcus API signing seed (64 hex characters)
+- `ARCUS_ADDRESS`: Master Ethereum wallet address that owns the key
+- `ARCUS_ACCOUNT_INDEX`: Authorized Arcus subaccount (0–9)
+- `ARCUS_ENVIRONMENT`: `mainnet` or `testnet`
+
 **How to get LIGHTER_ACCOUNT_INDEX**:
 
 1. Add your wallet address to the end of the following URL:
@@ -382,7 +400,7 @@ python hedge_mode.py --exchange edgex --ticker BTC --size 0.001 --iter 20
 
 ### Command Line Arguments
 
-- `--exchange`: Exchange to use: 'edgex', 'backpack', 'paradex', 'aster', 'lighter', 'grvt', or 'extended' (default: edgex)
+- `--exchange`: Exchange to use: 'edgex', 'backpack', 'paradex', 'aster', 'lighter', 'grvt', 'extended', 'apex', 'nado', 'ethereal', 'standx', or 'arcus' (default: edgex)
 - `--ticker`: Base asset symbol (e.g., ETH, BTC, SOL). Contract ID is auto-resolved.
 - `--quantity`: Order quantity (default: 0.1)
 - `--take-profit`: Take profit percent (e.g., 0.02 means 0.02%)
@@ -393,7 +411,7 @@ python hedge_mode.py --exchange edgex --ticker BTC --size 0.001 --iter 20
 - `--grid-step`: Minimum distance in percentage to the next close order price (default: -100, means no restriction)
 - `--stop-price`: When `direction` is 'buy', stop trading and exit the program when price >= stop-price; 'sell' logic is opposite (default: -1, no price-based termination). The purpose of this parameter is to prevent orders from being placed at "high points for long positions or low points for short positions that you consider".
 - `--pause-price`: When `direction` is 'buy', pause trading when price >= pause-price and resume trading when price falls back below pause-price; 'sell' logic is opposite (default: -1, no price-based pausing). The purpose of this parameter is to prevent orders from being placed at "high points for long positions or low points for short positions that you consider".
-- `--boost`: Enable Boost mode for volume boosting on Aster and Backpack exchanges (only available for 'aster' and 'backpack')
+- `--boost`: Enable Boost mode for volume boosting on Aster, Backpack, and Arcus
   Boost trading logic: Place maker orders to open positions, immediately close with taker orders after fill, repeat this cycle. Wear consists of one maker order, one taker order fees, and slippage.
 
 ## Logging

@@ -67,6 +67,20 @@ STANDX_WALLET_ADDRESS=your_wallet_address_here
 STANDX_PRIVATE_KEY=your_wallet_private_key_here
 STANDX_CHAIN=bsc  # or solana
 
+# Arcus Configuration
+# Register an Ed25519 API key in the Arcus web app. The signing key is shown
+# only once. ARCUS_API_KEY is the 64-character hex public key; the signing key
+# is a 32-byte hex seed. ARCUS_ADDRESS is the master wallet address that owns
+# the API key. Use ARCUS_ENVIRONMENT=testnet while validating the integration.
+ARCUS_API_KEY=your_64_hex_ed25519_public_key
+ARCUS_API_SIGNING_KEY=your_64_hex_ed25519_private_seed
+ARCUS_ADDRESS=0x0000000000000000000000000000000000000000
+ARCUS_ACCOUNT_INDEX=0
+ARCUS_ENVIRONMENT=mainnet  # or testnet
+# Optional overrides:
+# ARCUS_BASE_URL=https://api.arcus.xyz
+# ARCUS_WS_URL=wss://api.arcus.xyz/v1/ws
+
 # Notification (optional)
 # guide: https://www.feishu.cn/hc/zh-CN/articles/185289387886-%E6%B6%88%E6%81%AF%E5%8A%A9%E6%89%8B-%E6%9C%BA%E5%99%A8%E4%BA%BA
 LARK_TOKEN=

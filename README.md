@@ -12,7 +12,7 @@
 
 ## 自动交易机器人
 
-一个支持多个交易所（目前包括 EdgeX, Backpack, Paradex, Aster, Lighter, grvt, Extended）的模块化交易机器人。该机器人实现了自动下单并在盈利时自动平仓的策略，主要目的是取得高交易量。
+一个支持多个交易所（EdgeX、Backpack、Paradex、Aster、Lighter、GRVT、Extended、ApeX、Nado、Ethereal、StandX、Arcus）的模块化交易机器人。该机器人实现了自动下单并在盈利时自动平仓的策略，主要目的是取得高交易量。
 
 ## 邀请链接 (获得返佣以及福利)
 
@@ -286,6 +286,20 @@ ETH：
 python runbot.py --exchange extended --ticker ETH --quantity 0.1 --take-profit 0 --max-orders 40 --wait-time 450 --grid-step 0.1
 ```
 
+### Arcus：
+
+Arcus 的 ticker 使用市场基础资产（例如 `BTC`），客户端会自动解析为官方市场名（例如 `BTC-USD`）。Arcus 要求 Ed25519 API key、主钱包地址和已授权的子账户；请先按[官方认证文档](https://docs.arcus.xyz/api-reference/authentication)创建并授权 API key，再把签名私钥保存到 `.env`。
+
+```bash
+python runbot.py --exchange arcus --ticker BTC --quantity 0.001 --take-profit 0.02 --max-orders 40 --wait-time 450
+```
+
+Arcus 测试网：
+
+```bash
+ARCUS_ENVIRONMENT=testnet python runbot.py --exchange arcus --ticker BTC --quantity 0.001 --take-profit 0.02 --max-orders 10 --wait-time 30
+```
+
 ## 🆕 对冲模式 (Hedge Mode)
 
 新增的对冲模式 (`hedge_mode.py`) 是一个新的交易策略，通过同时在两个交易所进行对冲交易来降低风险：
@@ -394,6 +408,15 @@ python hedge_mode.py --exchange edgex --ticker BTC --size 0.001 --iter 20
 - `APEX_API_KEY_SECRET`: 您的 Apex API 密钥私钥
 - `APEX_OMNI_KEY_SEED`: 您的 Apex Omni 密钥种子
 
+#### Arcus 配置
+
+- `ARCUS_API_KEY`: Arcus Ed25519 公钥（64 位十六进制）
+- `ARCUS_API_SIGNING_KEY`: Arcus API Signing Key 的 32 字节私钥种子（64 位十六进制，只显示一次）
+- `ARCUS_ADDRESS`: 注册该 key 的主 Ethereum 钱包地址
+- `ARCUS_ACCOUNT_INDEX`: Arcus 子账户索引（0–9，默认 0）
+- `ARCUS_ENVIRONMENT`: `mainnet` 或 `testnet`
+- `ARCUS_BASE_URL` / `ARCUS_WS_URL`: 可选的 REST/WebSocket 地址覆盖
+
 #### Nado 配置
 
 - `NADO_PRIVATE_KEY`: 您的钱包私钥
@@ -413,7 +436,7 @@ python hedge_mode.py --exchange edgex --ticker BTC --size 0.001 --iter 20
 
 ### 命令行参数
 
-- `--exchange`: 使用的交易所：'edgex'、'backpack'、'paradex'、'aster'、'lighter'、'grvt'、'extended' 或 'nado'（默认：edgex）
+- `--exchange`: 使用的交易所：'edgex'、'backpack'、'paradex'、'aster'、'lighter'、'grvt'、'extended'、'apex'、'nado'、'ethereal'、'standx' 或 'arcus'（默认：edgex）
 - `--ticker`: 标的资产符号（例如：ETH、BTC、SOL）。合约 ID 自动解析。
 - `--quantity`: 订单数量（默认：0.1）
 - `--take-profit`: 止盈百分比（例如 0.02 表示 0.02%）
@@ -424,7 +447,7 @@ python hedge_mode.py --exchange edgex --ticker BTC --size 0.001 --iter 20
 - `--grid-step`: 与下一个平仓订单价格的最小距离百分比（默认：-100，表示无限制）
 - `--stop-price`: 当 `direction` 是 'buy' 时，当 price >= stop-price 时停止交易并退出程序；'sell' 逻辑相反（默认：-1，表示不会因为价格原因停止交易），参数的目的是防止订单被挂在”你认为的开多高点或开空低点“。
 - `--pause-price`: 当 `direction` 是 'buy' 时，当 price >= pause-price 时暂停交易，并在价格回到 pause-price 以下时重新开始交易；'sell' 逻辑相反（默认：-1，表示不会因为价格原因停止交易），参数的目的是防止订单被挂在”你认为的开多高点或开空低点“。
-- `--boost`: 启用 Boost 模式进行交易量提升（仅适用于 aster 和 backpack 交易所）
+- `--boost`: 启用 Boost 模式进行交易量提升（适用于 aster、backpack 和 arcus；Arcus 使用 IOC 市价保护价平仓）
   Boost 模式的下单逻辑：下 maker 单开仓，成交后立即用 taker 单关仓，以此循环。磨损为一单 maker，一单 taker 的手续费，以及滑点。
 
 ## 日志记录
