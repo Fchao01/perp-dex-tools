@@ -187,6 +187,7 @@ Assuming current ETH price is $2000 with take-profit set to 0.02%:
 - **Grid Control**: Ensures reasonable spacing between close orders via `grid-step`
 - **Order Frequency Control**: Controls order timing via `wait-time` to prevent being trapped in short periods
 - **Real-time Monitoring**: Continuously monitors positions and order status
+- **Automatic Reconciliation**: Adds reduce-only close size for uncovered positions or cancels excess close orders; new entries pause while reconciliation is pending
 - **⚠️ No Stop Loss**: This strategy does not include stop-loss functionality and may face significant losses in adverse market conditions
 
 ## Sample commands:

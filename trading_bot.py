@@ -81,6 +81,7 @@ class TradingBot:
         self.order_canceled_event = asyncio.Event()
         self.shutdown_requested = False
         self.loop = None
+        self._last_reconciliation_time = 0.0
 
         # Register order callback
         self._setup_websocket_handlers()
@@ -372,10 +373,12 @@ class TradingBot:
                 self.active_close_orders = []
                 for order in active_orders:
                     if order.side == self.config.close_order_side:
+                        remaining_size = Decimal(str(getattr(order, "remaining_size", 0) or 0))
+                        order_size = remaining_size if remaining_size > 0 else Decimal(str(order.size))
                         self.active_close_orders.append({
                             'id': order.order_id,
                             'price': order.price,
-                            'size': order.size
+                            'size': order_size
                         })
 
                 # Get positions
@@ -392,25 +395,27 @@ class TradingBot:
                 self.logger.log(f"Current Position: {position_amt} | Active closing amount: {active_close_amount} | "
                                 f"Order quantity: {len(self.active_close_orders)}")
                 self.last_log_time = time.time()
-                # Check for position mismatch
-                if abs(position_amt - active_close_amount) > (2 * self.config.quantity):
-                    error_message = f"\n\nERROR: [{self.config.exchange.upper()}_{self.config.ticker.upper()}] "
-                    error_message += "Position mismatch detected\n"
-                    error_message += "###### ERROR ###### ERROR ###### ERROR ###### ERROR #####\n"
-                    error_message += "Please manually rebalance your position and take-profit orders\n"
-                    error_message += "请手动平衡当前仓位和正在关闭的仓位\n"
-                    error_message += f"current position: {position_amt} | active closing amount: {active_close_amount} | "f"Order quantity: {len(self.active_close_orders)}\n"
-                    error_message += "###### ERROR ###### ERROR ###### ERROR ###### ERROR #####\n"
-                    self.logger.log(error_message, "ERROR")
-
-                    await self.send_notification(error_message.lstrip())
-
-                    if not self.shutdown_requested:
-                        self.shutdown_requested = True
-
-                    mismatch_detected = True
-                else:
+                # Reconcile the close-order inventory against the actual
+                # position instead of stopping on every partial fill or
+                # eventual-consistency delay.
+                mismatch = position_amt - active_close_amount
+                tolerance = max(self.config.quantity / Decimal("1000"), Decimal("0.00000001"))
+                if abs(mismatch) <= tolerance:
                     mismatch_detected = False
+                else:
+                    # Always skip opening another order during this iteration.
+                    # The reconciliation result is checked again against a
+                    # fresh exchange snapshot before trading resumes.
+                    reconciled = await self._reconcile_close_orders(
+                        position_amt, active_close_amount, mismatch
+                    )
+                    mismatch_detected = True
+                    if not reconciled:
+                        self.logger.log(
+                            "[RECONCILE] Trading remains paused until close-order "
+                            "inventory matches the position",
+                            "ERROR",
+                        )
 
                 return mismatch_detected
 
@@ -419,6 +424,84 @@ class TradingBot:
                 self.logger.log(f"Traceback: {traceback.format_exc()}", "ERROR")
 
             print("--------------------------------")
+
+    async def _reconcile_close_orders(
+        self,
+        position_amt: Decimal,
+        active_close_amount: Decimal,
+        mismatch: Decimal,
+    ) -> bool:
+        """Bring active reduce-only close orders back to the current position.
+
+        A positive mismatch means the position has uncovered size, so a new
+        reduce-only close order is placed. A negative mismatch means there is
+        more close inventory than position size, so existing close orders are
+        canceled until the next status pass can remeasure the account.
+        """
+        del position_amt, active_close_amount
+        now = time.time()
+        # Arcus acknowledges mutations before the order snapshot necessarily
+        # reflects them. Keep the bot paused for a short settlement window so
+        # a delayed snapshot cannot cause duplicate compensating orders.
+        if now - self._last_reconciliation_time < 30:
+            return True
+
+        try:
+            if mismatch > 0:
+                best_bid, best_ask = await self.exchange_client.fetch_bbo_prices(self.config.contract_id)
+                if best_bid <= 0 or best_ask <= 0 or best_bid >= best_ask:
+                    raise ValueError("No bid/ask data available while reconciling close orders")
+
+                close_side = self.config.close_order_side
+                if close_side == "sell":
+                    close_price = best_ask * (1 + self.config.take_profit / 100)
+                else:
+                    close_price = best_bid * (1 - self.config.take_profit / 100)
+
+                result = await self.exchange_client.place_close_order(
+                    self.config.contract_id,
+                    mismatch,
+                    close_price,
+                    close_side,
+                )
+                if not result.success:
+                    raise RuntimeError(result.error_message or "close-order placement failed")
+                self._last_reconciliation_time = now
+                self.last_log_time = 0
+                self.logger.log(
+                    f"[RECONCILE] Added close order for uncovered position {mismatch} "
+                    f"@ {result.price or close_price}",
+                    "WARNING",
+                )
+                return True
+
+            # Too much close inventory: cancel enough orders to make the next
+            # status pass recalculate from the exchange's authoritative state.
+            excess = abs(mismatch)
+            for order in list(self.active_close_orders):
+                if excess <= 0:
+                    break
+                order_size = Decimal(str(order.get("size", 0)))
+                if order_size <= 0:
+                    continue
+                result = await self.exchange_client.cancel_order(str(order["id"]))
+                if not result.success:
+                    raise RuntimeError(
+                        result.error_message or f"failed to cancel close order {order['id']}"
+                    )
+                excess -= order_size
+
+            self._last_reconciliation_time = now
+            self.last_log_time = 0
+            self.logger.log(
+                f"[RECONCILE] Canceled excess close-order inventory {abs(mismatch)}; "
+                "waiting for exchange state to settle",
+                "WARNING",
+            )
+            return True
+        except Exception as exc:
+            self.logger.log(f"[RECONCILE] Unable to balance close orders: {exc}", "ERROR")
+            return False
 
     async def _meet_grid_step_condition(self) -> bool:
         if self.active_close_orders:
@@ -526,10 +609,12 @@ class TradingBot:
                 self.active_close_orders = []
                 for order in active_orders:
                     if order.side == self.config.close_order_side:
+                        remaining_size = Decimal(str(getattr(order, "remaining_size", 0) or 0))
+                        order_size = remaining_size if remaining_size > 0 else Decimal(str(order.size))
                         self.active_close_orders.append({
                             'id': order.order_id,
                             'price': order.price,
-                            'size': order.size
+                            'size': order_size
                         })
 
                 # Periodic logging
